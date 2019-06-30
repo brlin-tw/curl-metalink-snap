@@ -194,6 +194,7 @@ parts:
 
       "${SNAPCRAFT_STAGE}"/scriptlets/selective-checkout \
         --append-packaging-revision \
+        --force-stable \
         --release-tag-prefix=curl-
 
     # https://github.com/curl/curl/blob/master/GIT-INFO
