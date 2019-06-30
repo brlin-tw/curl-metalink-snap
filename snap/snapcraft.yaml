@@ -131,7 +131,8 @@ parts:
   libmetalink-runtime-deps:
     plugin: nil
     stage-packages:
-    - libexpat1
+    #- libexpat1
+    - libxml2
 
   libmetalink:
     after:
@@ -146,8 +147,8 @@ parts:
     - make
     - patch
     - pkg-config
-    - libexpat1-dev
-    #- libxml2-dev
+    #- libexpat1-dev
+    - libxml2-dev
     override-build: |
       set -o nounset
 
