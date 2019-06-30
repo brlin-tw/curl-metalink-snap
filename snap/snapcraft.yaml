@@ -152,9 +152,7 @@ parts:
       set -o nounset
 
       patch \
-        --debug=1 \
         --strip=1 \
-        --verbose \
         < "${SNAPCRAFT_STAGE}"/patching/fix-issues-found-by-covscan.patch
       ./buildconf
       snapcraftctl build
