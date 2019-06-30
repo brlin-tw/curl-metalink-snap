@@ -1,0 +1,32 @@
+From d0adf36010914256c03206921c3c7d450b011633 Mon Sep 17 00:00:00 2001
+From: Martin Sehnoutka <msehnout@redhat.com>
+Date: Wed, 22 Aug 2018 12:21:08 +0200
+Subject: [PATCH] fix issues found by covscan
+
+---
+ lib/metalink_pctrl.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/lib/metalink_pctrl.c b/lib/metalink_pctrl.c
+index a70aa44..8862cc7 100644
+--- a/lib/metalink_pctrl.c
++++ b/lib/metalink_pctrl.c
+@@ -464,6 +464,7 @@ metalink_error_t metalink_pctrl_file_set_language(metalink_pctrl_t *ctrl,
+   l = strdup(language);
+   ctrl->languages = metalink_list_new();
+   if(!ctrl->languages || !l || metalink_list_append(ctrl->languages, l) != 0) {
++    if (l) free(l);
+     return METALINK_ERR_BAD_ALLOC;
+   }
+ 
+@@ -481,6 +482,7 @@ metalink_error_t metalink_pctrl_file_set_os(metalink_pctrl_t *ctrl,
+   o = strdup(os);
+   ctrl->oses = metalink_list_new();
+   if(!ctrl->oses || !o || metalink_list_append(ctrl->oses, o) != 0) {
++    if (o) free(o);
+     return METALINK_ERR_BAD_ALLOC;
+   }
+ 
+-- 
+2.22.0
+

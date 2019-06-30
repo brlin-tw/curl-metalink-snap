@@ -95,13 +95,13 @@ parts:
     - -bin/README.*
 
   # Programs to modify the behavior of each step of the snapcraft lifecycles
-  scriptlets:
-    source: snap/local/scriptlets
-    plugin: dump
-    organize:
-      '*': scriptlets/
-    prime:
-    - -*
+  #scriptlets:
+    #source: snap/local/scriptlets
+    #plugin: dump
+    #organize:
+      #'*': scriptlets/
+    #prime:
+    #- -*
 
   # Stage snap for fixing the glibc locales(and gnu gettext I18N support)
   # This part is only required for non GUI apps that don't uses the desktop-launch launchers
@@ -128,8 +128,46 @@ parts:
     prime:
     - -*
 
+  libmetalink-runtime-deps:
+    plugin: nil
+    stage-packages:
+    - libexpat1
+
+  libmetalink:
+    after:
+    - patching
+
+    source: https://github.com/metalink-dev/libmetalink.git
+    source-tag: release-0.1.3
+    source-depth: 1
+    plugin: autotools
+    build-packages:
+    - autoconf
+    - make
+    - patch
+    - pkg-config
+    - libexpat1-dev
+    #- libxml2-dev
+    override-build: |
+      set -o nounset
+
+      patch \
+        --debug=1 \
+        --strip=1 \
+        --verbose \
+        < "${SNAPCRAFT_STAGE}"/patching/fix-issues-found-by-covscan.patch
+      ./buildconf
+      snapcraftctl build
+
+  main-runtime-deps:
+    plugin: nil
+    stage-packages:
+    - libgnutls-openssl27
+
   main:
     after:
+    - libmetalink
+
     # for override-pull scriptlet
     - selective-checkout
 
@@ -144,19 +182,55 @@ parts:
         --append-packaging-revision \
         --release-tag-prefix=curl-
 
-    plugin: dump
-    organize:
-      curl-metalink: bin/
-    stage:
-    - bin/*
+    # https://github.com/curl/curl/blob/master/GIT-INFO
+    # https://github.com/curl/curl/blob/master/docs/INSTALL.md
+    plugin: autotools
+    build-packages:
+    - autoconf
+    - automake
+    - groff
+    - libgnutls-dev
+    - libtool
+    - m4
+    - pkg-config
+    configflags:
+    #- --enable-crypto-auth
+    - --with-libmetalink
+    - --with-gnutls
+    build-environment:
+    # Workaround missing DSO problem
+    # https://segmentfault.com/a/1190000002462705
+    - LDFLAGS: -Wl,--copy-dt-needed-entries
+    override-build: |
+      set -o nounset
 
-    override-prime: |
-      set \
-        -o nounset
-
-      snapcraftctl prime
-
-      "${SNAPCRAFT_STAGE}"/patching/patch-desktop-entries.bash
+      ./buildconf
+      snapcraftctl build
+    filesets:
+      executables-dev:
+      - bin/curl-config
+      executables-runtime:
+      - bin/curl
+      libraries-headers:
+      - include/*
+      libraries-libtool:
+      - lib/**.la
+      libraries-pkgconfig:
+      - lib/pkgconfig/*
+      libraries-shared:
+      - lib/**.so*
+      libraries-static:
+      - lib/**.a
+      res-m4:
+      - share/aclocal/*
+      res-manpages-runtime:
+      - share/man/**.1*
+      res-manpages-dev:
+      - share/man/**.3*
+    prime:
+    - $executables-runtime
+    - $libraries-shared
+    - $res-manpages-runtime
 
 # Apps that are exposed by the snap package
 # If the _app_name_ is identical with the _snap_name_ it can be directly run
