@@ -17,7 +17,7 @@ name: curl-metalink
 title: cURL(with Metalink support)
 summary: Download Metalinks with cURL for Debianish distros
 description: |
-  This snap ships a build of cURL with [Metalink][1] support to provide a *workaround* for Debianish GNU/Linux distribution where the feature is not enabled due to the missing packaging of libmetalink([Debian][2], [Ubuntu][3]).
+  This snap ships a build of cURL with [Metalink][1] support to provide a *workaround* for Debianish GNU/Linux distributions where the feature is not enabled due to the missing packaging of libmetalink([Debian][2], [Ubuntu][3]).
 
   This snap does not guarantee to be up-to-date with upstream and free of security exploits, and is only recommended for downloading metalinks only.
 
