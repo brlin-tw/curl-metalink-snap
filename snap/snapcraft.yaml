@@ -158,6 +158,21 @@ parts:
         < "${SNAPCRAFT_STAGE}"/patching/fix-issues-found-by-covscan.patch
       ./buildconf
       snapcraftctl build
+    filesets:
+      libraries-headers:
+      - include/*
+      libraries-libtool:
+      - lib/**.la
+      libraries-pkgconfig:
+      - lib/pkgconfig/*
+      libraries-shared:
+      - lib/**.so*
+      libraries-static:
+      - lib/**.a
+      res-manpages-dev:
+      - share/man/**.3*
+    prime:
+    - $libraries-shared
 
   main-runtime-deps:
     plugin: nil
