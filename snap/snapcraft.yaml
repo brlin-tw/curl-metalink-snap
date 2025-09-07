@@ -56,7 +56,7 @@ assumes:
 # Base runtime
 # The common runtime for the snap to run on, or `bare` for static linked applications
 # https://docs.snapcraft.io/snapcraft-top-level-metadata/8334#heading--base
-base: core
+base: core24
 
 # Security confinement
 # Use `devmode` to getting started
@@ -94,15 +94,6 @@ parts:
     stage:
     - -bin/README.*
 
-  # Programs to modify the behavior of each step of the snapcraft lifecycles
-  #scriptlets:
-    #source: snap/local/scriptlets
-    #plugin: dump
-    #organize:
-      #'*': scriptlets/
-    #prime:
-    #- -*
-
   # Stage snap for fixing the glibc locales(and gnu gettext I18N support)
   # This part is only required for non GUI apps that don't uses the desktop-launch launchers
   # https://forum.snapcraft.io/t/the-locales-launch-stage-snap/10296
@@ -116,17 +107,6 @@ parts:
 
     # For locale data used by localedef(1)
     - locales
-
-  # Check out the tagged release revision if it isn't promoted to the stable channel
-  # https://forum.snapcraft.io/t/selective-checkout-check-out-the-tagged-release-revision-if-it-isnt-promoted-to-the-stable-channel/10617
-  selective-checkout:
-    plugin: nil
-    build-packages:
-    - git
-    stage-snaps:
-    - selective-checkout
-    prime:
-    - -*
 
   libmetalink-runtime-deps:
     plugin: nil
@@ -142,6 +122,8 @@ parts:
     source-tag: release-0.1.3
     source-depth: 1
     plugin: autotools
+    autotools-configure-parameters:
+    - --prefix=
     build-packages:
     - autoconf
     - make
@@ -154,48 +136,42 @@ parts:
 
       patch \
         --strip=1 \
-        < "${SNAPCRAFT_STAGE}"/patching/fix-issues-found-by-covscan.patch
+        < "${CRAFT_STAGE}"/patching/fix-issues-found-by-covscan.patch
       ./buildconf
-      snapcraftctl build
-    filesets:
-      libraries-headers:
-      - include/*
-      libraries-libtool:
-      - lib/**.la
-      libraries-pkgconfig:
-      - lib/pkgconfig/*
-      libraries-shared:
-      - lib/**.so*
-      libraries-static:
-      - lib/**.a
-      res-manpages-dev:
-      - share/man/**.3*
+      craftctl default
     prime:
-    - $libraries-shared
+    - lib/**.so*
+    - usr/lib/*/**.so*
 
   main-runtime-deps:
     plugin: nil
     stage-packages:
-    - libgnutls-openssl27
+    - libgnutls30t64
 
   main:
     after:
     - libmetalink
 
-    # for override-pull scriptlet
-    - selective-checkout
-
     source: https://github.com/curl/curl.git
-    source-depth: 500
+    source-depth: 1
+    source-tag: curl-7_77_0
     override-pull: |
       set -o nounset
 
-      snapcraftctl pull
+      if ! craftctl default; then
+          printf \
+            'Error: Unable to run the default action of this step.\n' \
+            1>&2
+            exit 2
+      fi
 
-      "${SNAPCRAFT_STAGE}"/scriptlets/selective-checkout \
-        --append-packaging-revision \
-        --force-stable \
-        --release-tag-prefix=curl-
+      packaging_revision="$(git -C "${CRAFT_PROJECT_DIR}" describe --abbrev=4 --dirty --always)"
+      if ! craftctl set version="7.77.0+pkg-${packaging_revision}"; then
+          printf \
+            'Error: Unable to set the version of the snap.\n' \
+            1>&2
+            exit 2
+      fi
 
     # https://github.com/curl/curl/blob/master/GIT-INFO
     # https://github.com/curl/curl/blob/master/docs/INSTALL.md
@@ -204,48 +180,37 @@ parts:
     - autoconf
     - automake
     - groff
-    - libgnutls-dev
+    - libgnutls28-dev
+    - libgsasl-dev
+    - libpsl-dev
     - libtool
     - m4
     - pkg-config
-    configflags:
+
+    # selective-checkout dependencies
+    - curl
+    - jq
+    - sed
+    stage-packages:
+    - libgsasl18
+    - libgssglue1
+    - libidn12
+    - libntlm0
+    - libpsl5t64
+    autotools-configure-parameters:
     #- --enable-crypto-auth
     - --with-libmetalink
     - --with-gnutls
+    - --prefix=
     build-environment:
     # Workaround missing DSO problem
     # https://segmentfault.com/a/1190000002462705
-    - LDFLAGS: -Wl,--copy-dt-needed-entries
-    override-build: |
-      set -o nounset
-
-      ./buildconf
-      snapcraftctl build
-    filesets:
-      executables-dev:
-      - bin/curl-config
-      executables-runtime:
-      - bin/curl
-      libraries-headers:
-      - include/*
-      libraries-libtool:
-      - lib/**.la
-      libraries-pkgconfig:
-      - lib/pkgconfig/*
-      libraries-shared:
-      - lib/**.so*
-      libraries-static:
-      - lib/**.a
-      res-m4:
-      - share/aclocal/*
-      res-manpages-runtime:
-      - share/man/**.1*
-      res-manpages-dev:
-      - share/man/**.3*
+    - LDFLAGS: "-Wl,--copy-dt-needed-entries"
     prime:
-    - $executables-runtime
-    - $libraries-shared
-    - $res-manpages-runtime
+    - bin/curl
+    - lib/**.so*
+    - usr/lib/*/**.so*
+    - share/man/**.1*
 
 # Apps that are exposed by the snap package
 # If the _app_name_ is identical with the _snap_name_ it can be directly run
@@ -253,10 +218,6 @@ parts:
 # via `_snap_name_._app_name_` or `snap run _snap_name_._app_name_`
 apps:
   curl-metalink:
-    # The adapter to set up runtime environment at the launch of the snap
-    # NOTE: The `command-chain` property is only supported by the `full` adapter
-    adapter: full
-
     # An *relative path* to an executable file root from the `prime` directory to be executed, and its command-line arguments
     # NOTE: The right angle bracket at the beginning of the value of the `command` keyword starts a YAML folded style block scalar, refer the following spec document for more info: http://yaml.org/spec/1.2/spec.html#id2796251
     command: bin/curl
@@ -266,31 +227,6 @@ apps:
     - bin/locales-launch
     - bin/curl-metalink-launch
 
-# Refer the following documentation for asserting interface plugs and slots in a security confined snap:
-# Interface management - doc - snapcraft.io
-# https://docs.snapcraft.io/interface-management/6154
-# Supported interfaces - doc - snapcraft.io
-# https://docs.snapcraft.io/supported-interfaces/7744
-# Non-A/C: Non-autoconnect interface
-plugs:
-  # Regular files access
-  home:
-  removable-media: # Non-A/C
-
-  # Application-specific files access
-  # The auto-connection requires store grant
-  # https://forum.snapcraft.io/t/the-personal-files-interface/9357
-  # https://forum.snapcraft.io/t/the-system-files-interface/9358
-  #user-wide-configs:
-    #interface: personal-files
-    #read:
-    #- $HOME/.config/curl-metalink
-  #system-wide-configs:
-    #interface: system-files
-    #read:
-    #- /etc/curl-metalink
-
-  # Network access
-  network:
-
-#slots:
+    plugs:
+    - home
+    - network
